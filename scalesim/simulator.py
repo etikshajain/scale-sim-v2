@@ -1,11 +1,13 @@
 import os
 
-from scalesim.scale_config import scale_config as cfg
-from scalesim.topology_utils import topologies as topo
-from scalesim.single_layer_sim import single_layer_sim as layer_sim
+from scale_config import scale_config as cfg
+from topology_utils import topologies as topo
+from single_layer_sim import single_layer_sim as layer_sim
+from memory_map import method_logger
 
 
 class simulator:
+    @method_logger
     def __init__(self):
         self.conf = cfg()
         self.topo = topo()
@@ -21,7 +23,7 @@ class simulator:
         self.params_set_flag = False
         self.all_layer_run_done = False
 
-    #
+    @method_logger
     def set_params(self,
                    config_obj=cfg(),
                    topo_obj=topo(),
@@ -42,7 +44,7 @@ class simulator:
 
         self.params_set_flag = True
 
-    #
+    @method_logger
     def run(self):
         assert self.params_set_flag, 'Simulator parameters are not set'
 
@@ -108,7 +110,7 @@ class simulator:
 
         self.generate_reports()
 
-    #
+    @method_logger
     def generate_reports(self):
         assert self.all_layer_run_done, 'Layer runs are not done yet'
 
@@ -158,7 +160,7 @@ class simulator:
         bandwidth_report.close()
         detail_report.close()
 
-    #
+    @method_logger
     def get_total_cycles(self):
         assert self.all_layer_run_done, 'Layer runs are not done yet'
 

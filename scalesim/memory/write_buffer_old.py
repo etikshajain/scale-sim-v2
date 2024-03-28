@@ -3,10 +3,11 @@
 import math
 import numpy as np
 from tqdm import tqdm
-from scalesim.memory.write_port import write_port
-
+from memory.write_port import write_port
+from memory_map import method_logger
 
 class write_buffer:
+    @method_logger
     def __init__(self):
         # Buffer properties: User specified
         self.total_size_bytes = 128
@@ -46,7 +47,7 @@ class write_buffer:
 
         self.trace_valid = False
 
-    #
+    @method_logger
     def set_params(self, backing_buf_obj,
                    total_size_bytes=128, word_size=1, active_buf_frac=0.9,
                    backing_buf_bw=100
@@ -65,7 +66,7 @@ class write_buffer:
         self.drain_buf_size = self.total_size_elems - self.active_buf_size
         self.free_space = self.total_size_elems
 
-    #
+    @method_logger
     def reset(self):
         self.total_size_bytes = 128
         self.word_size = 1
@@ -86,7 +87,7 @@ class write_buffer:
 
         self.trace_valid = False
 
-    #
+    @method_logger
     def service_writes(self, incoming_requests_arr_np, incoming_cycles_arr_np):
         assert incoming_cycles_arr_np.shape[0] == incoming_requests_arr_np.shape[0], 'Cycles and requests do not match'
         out_cycles_arr = []
@@ -137,7 +138,7 @@ class write_buffer:
         out_cycles_arr_np = np.asarray(out_cycles_arr).reshape((num_lines, 1))
         return out_cycles_arr_np
 
-    #
+    @method_logger
     def empty_drain_buf(self, empty_start_cycle=0):
 
         data_sz_to_drain = min(len(self.drain_buf_contents), self.drain_buf_size)
@@ -170,7 +171,7 @@ class write_buffer:
         self.free_space += data_sz_to_drain
         return service_end_cycle
 
-    #
+    @method_logger
     def drain_active_buf(self):
         while len(self.active_buf_contents) > 0:
             for i in range(self.drain_buf_size):
@@ -180,7 +181,7 @@ class write_buffer:
 
             self.drain_end_cycle = self.empty_drain_buf(self.drain_end_cycle)
 
-    #
+    @method_logger
     def empty_all_buffers(self, cycle):
         if self.state == 0:
             self.drain_end_cycle = self.empty_drain_buf(empty_start_cycle=cycle)
@@ -188,7 +189,7 @@ class write_buffer:
         else:
             self.drain_active_buf()
 
-    #
+    @method_logger
     def get_trace_matrix(self):
         if not self.trace_valid:
             print('No trace has been generated yet')
@@ -196,16 +197,16 @@ class write_buffer:
 
         return self.trace_matrix
 
-    #
+    @method_logger
     def get_free_space(self):
         return self.free_space
 
-    #
+    @method_logger
     def get_num_accesses(self):
         assert self.trace_valid, 'Traces not ready yet'
         return self.num_access
 
-    #
+    @method_logger
     def get_external_access_start_stop_cycles(self):
         assert self.trace_valid, 'Traces not ready yet'
         start_cycle = self.trace_matrix[0][0]
@@ -213,10 +214,10 @@ class write_buffer:
 
         return start_cycle, end_cycle
 
-    #
+    @method_logger
     def print_trace(self, filename):
         if not self.trace_valid:
             print('No trace has been generated yet')
             return
-
+        print(self.trace_matrix)
         np.savetxt(filename, self.trace_matrix, fmt='%s', delimiter=",")

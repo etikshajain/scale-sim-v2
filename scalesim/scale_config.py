@@ -2,10 +2,12 @@ import configparser as cp
 import os
 import sys
 
-from scalesim.memory_map import memory_map
+from memory_map import memory_map
+from memory_map import method_logger
 
 
 class scale_config:
+    @method_logger
     def __init__(self):
         self.run_name = "scale_run"
         # Anand: ISSUE #2. Patch
@@ -29,7 +31,7 @@ class scale_config:
 
         self.valid_df_list = ['os', 'ws', 'is']
 
-    #
+    @method_logger
     def read_conf_file(self, conf_file_in):
 
         me = 'scale_config.' + 'read_conf_file()'
@@ -109,7 +111,7 @@ class scale_config:
 
         self.valid_conf_flag = True
 
-    #
+    @method_logger
     def update_from_list(self, conf_list):
         if not len(conf_list) > 11:
             print("ERROR: scale_config.update_from_list: "
@@ -154,7 +156,7 @@ class scale_config:
 
         self.valid_conf_flag = True
 
-    #
+    @method_logger
     def write_conf_file(self, conf_file_out):
         if not self.valid_conf_flag:
             print('ERROR: scale_config.write_conf_file: No valid config loaded')
@@ -191,7 +193,7 @@ class scale_config:
         with open(conf_file_out, 'w') as configfile:
             config.write(configfile)
 
-    #
+    @method_logger
     def scale_memory_maps(self, num_layers=1):
         me = 'scale_config.' + 'scale_memory_maps'
 
@@ -204,26 +206,26 @@ class scale_config:
         if self.memory_banks == 1:
             self.memory_map.scale_single_bank_params(num_layers=num_layers)
 
-    #
+    @method_logger
     def set_arr_dims(self, rows=1, cols=1):
         self.array_rows = rows
         self.array_cols = cols
 
-    #
+    @method_logger
     def set_dataflow(self, dataflow='os'):
         self.df = dataflow
 
-    #
+    @method_logger
     def set_buffer_sizes_kb(self, ifmap_size_kb=1, filter_size_kb=1, ofmap_size_kb=1):
         self.ifmap_sz_kb = ifmap_size_kb
         self.filter_sz_kb = filter_size_kb
         self.ofmap_sz_kb = ofmap_size_kb
 
-    #
+    @method_logger
     def set_topology_file(self, topofile=''):
         self.topofile = topofile
 
-    #
+    @method_logger
     def set_offsets(self,
                     ifmap_offset=0,
                     filter_offset=10000000,
@@ -234,15 +236,15 @@ class scale_config:
         self.ifmap_offset = ofmap_offset
         self.valid_conf_flag = True
 
-    #
+    @method_logger
     def force_valid(self):
         self.valid_conf_flag = True
 
-    #
+    @method_logger
     def set_bw_mode_to_calc(self):
         self.use_user_bandwidth = False
 
-    #
+    @method_logger
     def use_user_dram_bandwidth(self):
         if not self.valid_conf_flag:
             me = 'scale_config.' + 'use_user_dram_bandwidth()'
@@ -252,7 +254,7 @@ class scale_config:
 
         return self.use_user_bandwidth
 
-    #
+    @method_logger
     def get_conf_as_list(self):
         out_list = []
 
@@ -283,6 +285,7 @@ class scale_config:
 
         return out_list
 
+    @method_logger
     def get_run_name(self):
         if not self.valid_conf_flag:
             print("ERROR: scale_config.get_run_name() : Config data is not valid")
@@ -290,12 +293,14 @@ class scale_config:
 
         return self.run_name
 
+    @method_logger
     def get_topology_path(self):
         if not self.valid_conf_flag:
             print("ERROR: scale_config.get_topology_path() : Config data is not valid")
             return
         return self.topofile
 
+    @method_logger
     def get_topology_name(self):
         if not self.valid_conf_flag:
             print("ERROR: scale_config.get_topology_name() : Config data is not valid")
@@ -306,14 +311,17 @@ class scale_config:
 
         return name
 
+    @method_logger
     def get_dataflow(self):
         if self.valid_conf_flag:
             return self.df
 
+    @method_logger
     def get_array_dims(self):
         if self.valid_conf_flag:
             return self.array_rows, self.array_cols
 
+    @method_logger
     def get_mem_sizes(self):
         me = 'scale_config.' + 'get_mem_sizes()'
 
@@ -324,26 +332,32 @@ class scale_config:
 
         return self.ifmap_sz_kb, self.filter_sz_kb, self.ofmap_sz_kb
 
+    @method_logger
     def get_offsets(self):
         if self.valid_conf_flag:
             return self.ifmap_offset, self.filter_offset, self.ofmap_offset
 
+    @method_logger
     def get_bandwidths_as_string(self):
         if self.valid_conf_flag:
             return ','.join([str(x) for x in self.bandwidths])
 
+    @method_logger
     def get_mem_banks(self):
         if self.valid_conf_flag:
             return self.memory_banks
 
+    @method_logger
     def get_mem_map_obj(self):
         if self.valid_conf_flag:
             return self.memory_map
 
+    @method_logger
     def get_bandwidths_as_list(self):
         if self.valid_conf_flag:
             return self.bandwidths
 
+    @method_logger
     def get_min_dram_bandwidth(self):
         if not self.use_user_dram_bandwidth():
             me = 'scale_config.' + 'get_min_dram_bandwidth()'
@@ -353,6 +367,7 @@ class scale_config:
             return min(self.bandwidths)
 
     # FIX ISSUE #14
+    @method_logger
     @staticmethod
     def get_default_conf_as_list():
         dummy_obj = scale_config()

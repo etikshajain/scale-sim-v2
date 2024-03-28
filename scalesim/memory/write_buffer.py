@@ -5,10 +5,11 @@ import math
 import numpy as np
 #import matplotlib.pyplot as plt
 from tqdm import tqdm
-from scalesim.memory.write_port import write_port
-
+from memory.write_port import write_port
+from memory_map import method_logger
 
 class write_buffer:
+    @method_logger
     def __init__(self):
         # Buffer properties: User specified
         self.total_size_bytes = 128
@@ -54,7 +55,7 @@ class write_buffer:
         self.trace_matrix_cache_empty = True
         self.trace_matrix_empty = True
 
-    #
+    @method_logger
     def set_params(self, backing_buf_obj,
                    total_size_bytes=128, word_size=1, active_buf_frac=0.9,
                    backing_buf_bw=100
@@ -73,7 +74,7 @@ class write_buffer:
         self.drain_buf_size = self.total_size_elems - self.active_buf_size
         self.free_space = self.total_size_elems
 
-    #
+    @method_logger
     def reset(self):
         self.total_size_bytes = 128
         self.word_size = 1
@@ -97,7 +98,7 @@ class write_buffer:
         self.trace_matrix_cache_empty = True
         self.trace_matrix_empty = True
 
-    #
+    @method_logger
     def store_to_trace_mat_cache(self, elem):
         if elem == -1:
             return
@@ -125,7 +126,7 @@ class write_buffer:
             if not self.trace_matrix_cache.shape[0] < self.max_cache_lines:
                 self.append_to_trace_mat()
 
-    #
+    @method_logger
     def append_to_trace_mat(self, force=False):
         if force:   # This forces the contents for self.current_line and self.trace_matrix cache to be dumped
             if not self.line_idx == 0:
@@ -155,7 +156,7 @@ class write_buffer:
         # Fixing ISSUE #10
         self.trace_matrix_cache_empty = True
 
-    #
+    @method_logger
     def service_writes(self, incoming_requests_arr_np, incoming_cycles_arr_np):
         assert incoming_cycles_arr_np.shape[0] == incoming_requests_arr_np.shape[0], 'Cycles and requests do not match'
         out_cycles_arr = []
@@ -197,7 +198,7 @@ class write_buffer:
 
         return out_cycles_arr_np
 
-    #
+    @method_logger
     def empty_drain_buf(self, empty_start_cycle=0):
 
         lines_to_fill_dbuf = int(math.ceil(self.drain_buf_size / self.req_gen_bandwidth))
@@ -231,7 +232,7 @@ class write_buffer:
         self.drain_buf_start_line_id = self.drain_buf_end_line_id
         return service_end_cycle
 
-    #
+    @method_logger
     def empty_all_buffers(self, cycle):
         self.append_to_trace_mat(force=True)
 
@@ -242,7 +243,7 @@ class write_buffer:
             self.drain_end_cycle = self.empty_drain_buf(empty_start_cycle=cycle)
             cycle = self.drain_end_cycle + 1
 
-    #
+    @method_logger
     def get_trace_matrix(self):
         if not self.trace_valid:
             print('No trace has been generated yet')
@@ -252,16 +253,16 @@ class write_buffer:
 
         return trace_matrix
 
-    #
+    @method_logger
     def get_free_space(self):
         return self.free_space
 
-    #
+    @method_logger
     def get_num_accesses(self):
         assert self.trace_valid, 'Traces not ready yet'
         return self.num_access
 
-    #
+    @method_logger
     def get_external_access_start_stop_cycles(self):
         assert self.trace_valid, 'Traces not ready yet'
         start_cycle = self.cycles_vec[0][0]
@@ -269,10 +270,11 @@ class write_buffer:
 
         return start_cycle, end_cycle
 
-    #
+    @method_logger
     def print_trace(self, filename):
         if not self.trace_valid:
             print('No trace has been generated yet')
             return
         trace_matrix = self.get_trace_matrix()
+        print(self.trace_matrix)
         np.savetxt(filename, trace_matrix, fmt='%s', delimiter=",")

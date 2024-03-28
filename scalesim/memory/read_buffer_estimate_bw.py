@@ -1,10 +1,12 @@
 import math
 import numpy as np
 
-from scalesim.memory.read_port import read_port
+from memory.read_port import read_port
+from memory_map import method_logger
 
 
 class ReadBufferEstimateBw:
+    @method_logger
     def __init__(self):
         # Buffer parameters
         self.word_size = 1
@@ -51,7 +53,7 @@ class ReadBufferEstimateBw:
         self.active_buffer_prefetch_done = False
         self.trace_valid = False
 
-    #
+    @method_logger
     def set_params(self, backing_buf_obj,
                    total_size_bytes=1, word_size=1, active_buf_frac=0.9,
                    hit_latency=1, backing_buf_default_bw=1):
@@ -72,6 +74,8 @@ class ReadBufferEstimateBw:
         self.active_buf_size = int(math.ceil(self.total_size_elems * self.active_buf_frac))
         self.prefetch_buf_size = self.total_size_elems - self.active_buf_size
 
+        print("Prefetch buffer size:",self.prefetch_buf_size)
+
         #
         self.num_items_per_set = math.floor(self.total_size_elems / 100)
         self.num_sets_active_buffer = int(self.active_buf_frac * 100)
@@ -88,7 +92,7 @@ class ReadBufferEstimateBw:
         #
         self.params_set_flag = True
 
-    #
+    @method_logger
     def service_reads(self, incoming_requests_arr_np, incoming_cycles_arr):
         assert self.params_set_flag, 'Parameters are not set yet'
         assert incoming_cycles_arr.shape[0] == incoming_requests_arr_np.shape[0], 'Incoming cycles and requests dont match'
@@ -97,7 +101,7 @@ class ReadBufferEstimateBw:
         # Therefore its always a hit
 
         # The following to track requests and maintain proper state of the buffer
-        for i in range(incoming_requests_arr_np.shape[0]):
+        for i in range(incoming_requests_arr_np.shape[0]): #1
             cycle = int(incoming_cycles_arr[i][0])
 
             requests_this_cycle = incoming_requests_arr_np[i]
@@ -112,13 +116,13 @@ class ReadBufferEstimateBw:
 
         return outcycles
 
-    #
+    # @method_logger
     def manage_prefetches(self, cycle, addr):
 
         # If this is a new address, otherwise its a hit
         if self.check_hit(addr):
             return
-
+        # print("################################# CACHE MISS #####################################:", cycle, addr)
         if addr not in self.current_set:
             self.current_set.add(addr)
             self.elems_current_set += 1
@@ -131,6 +135,7 @@ class ReadBufferEstimateBw:
 
                 if self.current_set_id == self.read_buffer_set_end_id + 1:  # This should be prefetched
                     if not self.active_buffer_prefetch_done:
+                        print("################################# ACTIVE PREFETCH #####################################:", cycle, addr)
                         self.prefetch_bandwidth = self.default_bandwidth
                         self.last_prefetch_end_cycle = self.first_request_rcvd_cycle - 1 - self.backing_buffer.get_latency()
 
@@ -145,14 +150,19 @@ class ReadBufferEstimateBw:
                         self.prefetch_buffer_set_end_id = self.prefetch_buffer_set_start_id + \
                                                           self.num_sets_prefetch_buffer - 1
                         self.active_buffer_prefetch_done = True
+                        print("cycles needed:", cycles_needed)
+                        print("elems to prefetch:", cycles_needed*self.prefetch_bandwidth)
 
                     else:
+                        print("################################# PREFETCH #####################################:", cycle, addr)
                         elems_to_prefetch = self.num_sets_prefetch_buffer * self.num_items_per_set
                         cycles_needed = self.last_prefetch_end_cycle - self.last_prefetch_start_cycle + 1
                         self.prefetch_bandwidth = math.ceil(elems_to_prefetch / cycles_needed)
                         self.prefetch()
                         self.prefetch_buffer_set_start_id += self.num_sets_prefetch_buffer
                         self.prefetch_buffer_set_end_id += self.num_sets_prefetch_buffer
+                        print("cycles needed:", cycles_needed)
+                        print("elems to prefetch:", elems_to_prefetch)
                     
                     #Solving memory leak by discarding sets that are no longer in use
                     i = self.read_buffer_set_start_id
@@ -165,7 +175,7 @@ class ReadBufferEstimateBw:
                     self.last_prefetch_start_cycle = self.last_prefetch_end_cycle +1
                     self.last_prefetch_end_cycle = cycle
 
-    #
+    # @method_logger
     def check_hit(self, addr):
         assert self.params_set_flag, 'Parameters are not set yet'
 
@@ -181,7 +191,7 @@ class ReadBufferEstimateBw:
 
         return False
 
-    #
+    @method_logger
     def complete_all_prefetches(self):
         assert self.params_set_flag, 'Parameters are not set yet'
 
@@ -214,8 +224,9 @@ class ReadBufferEstimateBw:
             self.prefetch_bandwidth = math.ceil(elems_to_prefetch / cycles_needed)
             self.prefetch()
 
-    #
+    @method_logger
     def prefetch(self):
+        print("################################# PREFETCH #####################################:")
         assert self.params_set_flag, 'Parameters are not set yet'
 
         if not self.active_buffer_prefetch_done:
@@ -224,6 +235,7 @@ class ReadBufferEstimateBw:
         else:
             start_set_idx = self.prefetch_buffer_set_start_id
             end_set_idx = self.prefetch_buffer_set_end_id
+
 
         all_addresses = []
         for idx in range(start_set_idx, end_set_idx + 1):
@@ -243,15 +255,26 @@ class ReadBufferEstimateBw:
 
         prefetch_requests = np.asarray(all_addresses).reshape((cycles_needed, self.prefetch_bandwidth))
 
+        print(cycles_needed)
+        print(max_prefetch_capacity)
+        # print(prefetch_requests)
+        # print('Prefetch shape:',prefetch_requests.shape)
+
         cycles_arr = np.zeros((cycles_needed,1))
         for i in range(cycles_arr.shape[0]):
             cycles_arr[i][0] = self.last_prefetch_start_cycle + i
+        
+        # print(cycles_arr)
 
         response_cycles_arr = self.backing_buffer.service_reads(incoming_cycles_arr=cycles_arr,
                                                                 incoming_requests_arr_np=prefetch_requests)
+        
+        # print(response_cycles_arr)
 
         # Create / add elements to the trace matrix
         this_prefetch_traces = np.concatenate((response_cycles_arr, prefetch_requests), axis=1)
+
+        print(this_prefetch_traces)
 
         if not self.trace_valid:
             self.trace_matrix = this_prefetch_traces
@@ -269,13 +292,15 @@ class ReadBufferEstimateBw:
                 self.trace_matrix = np.concatenate((self.trace_matrix, empty_cols), axis=1)
 
             self.trace_matrix = np.concatenate((self.trace_matrix, this_prefetch_traces), axis=0)
+        
+        # print(self.trace_matrix)
 
-    #
+    @method_logger
     def get_latency(self):
         assert self.params_set_flag, 'Parameters are not valid'
         return self.hit_latency
 
-    #
+    @method_logger
     def get_trace_matrix(self):
         if not self.trace_valid:
             print('No trace has been generated yet')
@@ -283,16 +308,16 @@ class ReadBufferEstimateBw:
 
         return self.trace_matrix
 
-    #
+    @method_logger
     def get_hit_latency(self):
         return self.hit_latency
 
-    #
+    @method_logger
     def get_num_accesses(self):
         assert self.trace_valid, 'Traces not ready yet'
         return self.num_access
 
-    #
+    @method_logger
     def get_external_access_start_stop_cycles(self):
         assert self.trace_valid, 'Traces not ready yet'
         start_cycle = self.trace_matrix[0][0]
@@ -300,12 +325,12 @@ class ReadBufferEstimateBw:
 
         return start_cycle, end_cycle
 
-    #
+    @method_logger
     def print_trace(self, filename):
         if not self.trace_valid:
             print('No trace has been generated yet')
             return
-
+        print(self.trace_matrix)
         np.savetxt(filename, self.trace_matrix, fmt='%s', delimiter=",")
 
 

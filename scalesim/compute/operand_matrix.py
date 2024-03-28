@@ -2,12 +2,14 @@ import math
 import numpy as np
 from tqdm import tqdm
 
-from scalesim.topology_utils import topologies as topoutil
-from scalesim.scale_config import scale_config as cfg
+from topology_utils import topologies as topoutil
+from scale_config import scale_config as cfg
+from memory_map import method_logger
 
 
 # This class defines data types for operand matrices
 class operand_matrix(object):
+    #@method_logger
     def __init__(self):
         # Objects from outer container classes
         self.config = cfg()
@@ -38,7 +40,7 @@ class operand_matrix(object):
         self.params_set_flag = False
         self.matrices_ready_flag = False
 
-    #
+    #@method_logger
     def set_params(self,
                    config_obj,
                    topoutil_obj,
@@ -108,7 +110,20 @@ class operand_matrix(object):
         #    print(message)
         #    return False, None, None, None
 
+        print("\nInput Dimensions:")
+        print("IFMAP h:", self.ifmap_rows)
+        print("IFMAP w:", self.ifmap_cols)
+        print("Input channels:", self.num_input_channels)
+        print("Filter h:", self.filter_rows)
+        print("Filter w:", self.filter_cols)
+        print("Num filters:", self.num_filters)
+        print("OFMAP h:", self.ofmap_rows)
+        print("OFMAP w:", self.ofmap_cols)
+        print("ofmap_px_per_filt:", self.ofmap_px_per_filt)
+        print("conv_window_size:", self.conv_window_size)
+
     # top level function to create the operand matrices
+    #@method_logger
     def create_operand_matrices(self):
         my_name = 'operand_matrix.create_operand_matrices(): '
         err_prefix = 'Error: ' + my_name
@@ -129,6 +144,7 @@ class operand_matrix(object):
         return retcode
 
     # creates the ifmap operand
+    #@method_logger
     def create_ifmap_matrix(self):
         my_name = 'operand_matrix.create_ifmap_matrix(): '
         err_prefix = 'Error: ' + my_name
@@ -145,6 +161,7 @@ class operand_matrix(object):
         return 0
 
     # logic to translate ifmap into matrix fed into systolic array MACs
+    #@method_logger
     def calc_ifmap_elem_addr(self, i, j):
         offset = self.ifmap_offset
         ifmap_cols = self.ifmap_cols
@@ -178,6 +195,7 @@ class operand_matrix(object):
         return ifmap_px_addr
 
     # creates the ofmap operand
+    #@method_logger
     def create_ofmap_matrix(self):
         my_name = 'operand_matrix.create_ofmap_matrix(): '
         err_prefix = 'Error: ' + my_name
@@ -192,6 +210,7 @@ class operand_matrix(object):
         return 0
 
     # logic to translate ofmap into matrix resulting systolic array MACs
+    #@method_logger
     def calc_ofmap_elem_addr(self, i, j):
         offset = self.ofmap_offset
         num_filt = self.num_filters
@@ -200,6 +219,7 @@ class operand_matrix(object):
         return ofmap_px_addr
 
     # creates the filter operand
+    #@method_logger
     def create_filter_matrix(self):
         my_name = 'operand_matrix.create_filter_matrix(): '
         err_prefix = 'Error: ' + my_name
@@ -215,6 +235,7 @@ class operand_matrix(object):
         return 0
 
     # logic to translate filter into matrix fed into systolic array MACs
+    #@method_logger
     def calc_filter_elem_addr(self, i, j):
         offset = self.filter_offset
         filter_row = self.filter_rows
@@ -225,6 +246,7 @@ class operand_matrix(object):
         return filter_px_addr
 
     # function to get a part or the full ifmap operand
+    #@method_logger
     def get_ifmap_matrix_part(self, start_row=0, num_rows=-1, start_col=0,
                               num_cols=-1):
         if num_rows == -1:
@@ -254,10 +276,12 @@ class operand_matrix(object):
         ret_mat = self.ifmap_addr_matrix[start_row: end_row, start_col: end_col]
         return 0, ret_mat
 
+    #@method_logger
     def get_ifmap_matrix(self):
         return self.get_ifmap_matrix_part()
 
     # function to get a part or the full filter operand
+    #@method_logger
     def get_filter_matrix_part(self, start_row=0, num_rows=-1, start_col=0,
                                num_cols=-1):
 
@@ -290,10 +314,12 @@ class operand_matrix(object):
         ret_mat = self.filter_addr_matrix[start_row: end_row, start_col: end_col]
         return 0, ret_mat
 
+    #@method_logger
     def get_filter_matrix(self):
         return self.get_filter_matrix_part()
 
     # function to get a part or the full ofmap operand
+    #@method_logger
     def get_ofmap_matrix_part(self, start_row=0, num_rows=-1, start_col=0,
                                num_cols=-1):
 
@@ -329,9 +355,11 @@ class operand_matrix(object):
 
         return 0, ret_mat
 
+    #@method_logger
     def get_ofmap_matrix(self):
         return self.get_ofmap_matrix_part()
 
+    #@method_logger
     def get_all_operand_matrix(self):
         if not self.matrices_ready_flag:
             me = 'operand_matrix.' + 'get_all_operand_matrix()'

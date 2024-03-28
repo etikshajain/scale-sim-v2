@@ -1,15 +1,17 @@
 import os
 
-from scalesim.scale_config import scale_config as cfg
-from scalesim.topology_utils import topologies as topo
-from scalesim.compute.operand_matrix import operand_matrix as opmat
-from scalesim.compute.systolic_compute_os import systolic_compute_os
-from scalesim.compute.systolic_compute_ws import systolic_compute_ws
-from scalesim.compute.systolic_compute_is import systolic_compute_is
-from scalesim.memory.double_buffered_scratchpad_mem import double_buffered_scratchpad as mem_dbsp
+from scale_config import scale_config as cfg
+from topology_utils import topologies as topo
+from compute.operand_matrix import operand_matrix as opmat
+from compute.systolic_compute_os import systolic_compute_os
+from compute.systolic_compute_ws import systolic_compute_ws
+from compute.systolic_compute_is import systolic_compute_is
+from memory.double_buffered_scratchpad_mem import double_buffered_scratchpad as mem_dbsp
+from memory_map import method_logger
 
 
 class single_layer_sim:
+    @method_logger
     def __init__(self):
         self.layer_id = 0
         self.topo = topo()
@@ -68,6 +70,7 @@ class single_layer_sim:
         self.runs_ready = False
         self.report_items_ready = False
 
+    @method_logger
     def set_params(self,
                    layer_id=0,
                    config_obj=cfg(), topology_obj=topo(),
@@ -98,10 +101,12 @@ class single_layer_sim:
 
     # This communicates that the memory is being managed externally
     # And the class will not interfere with setting it up
+    @method_logger
     def set_memory_system(self, mem_sys_obj=mem_dbsp()):
         self.memory_system = mem_sys_obj
         self.memory_system_ready_flag = True
 
+    @method_logger
     def run(self):
         assert self.params_set_flag, 'Parameters are not set. Run set_params()'
 
@@ -124,7 +129,30 @@ class single_layer_sim:
         # 1.3 Get the no compute demand matrices from for 2 operands and the output
         ifmap_prefetch_mat, filter_prefetch_mat = self.compute_system.get_prefetch_matrices()
         ifmap_demand_mat, filter_demand_mat, ofmap_demand_mat = self.compute_system.get_demand_matrices()
+
+
+        print("\nDimensions of Operand Matrices:")
+        print("IFMAP Operand Matrix:", ifmap_op_mat.shape)
+        print("Filter Operand Matrix:", filter_op_mat.shape)
+        print("OFMAP Operand Matrix:", ofmap_op_mat.shape)
+
+        print("\nDimensions of Prefetch Matrices:")
+        print("IFMAP Prefetch Matrix:", ifmap_prefetch_mat.shape)
+        print("Filter Prefetch Matrix:", filter_prefetch_mat.shape)
+
+        print("\nDimensions of Demand Matrices:")
+        print("IFMAP Demand Matrix:", ifmap_demand_mat.shape)
+        print("Filter Demand Matrix:", filter_demand_mat.shape)
+        print("OFMAP Demand Matrix:", ofmap_demand_mat.shape)
         #print('DEBUG: Compute operations done')
+
+        print("\nCompute Metrics:")
+        print("Mapping efficiency:", self.compute_system.get_avg_mapping_efficiency() * 100)
+        print("Compute utilization:", self.compute_system.get_avg_compute_utilization() * 100)
+        print("OFMAP SRAM Writes:", self.compute_system.get_ofmap_requests())
+        print("IFMAP SRAM Reads:", self.compute_system.get_ifmap_requests())
+        print("Filter SRAM Reads:", self.compute_system.get_filter_requests())
+
         # 2. Setup the memory system and run the demands through it to find any memory bottleneck and generate traces
 
         # 2.1 Setup the memory system if it was not setup externally
@@ -182,6 +210,7 @@ class single_layer_sim:
         self.runs_ready = True
 
     # This will write the traces
+    @method_logger
     def save_traces(self, top_path):
         assert self.params_set_flag, 'Parameters are not set'
 
@@ -205,7 +234,7 @@ class single_layer_sim:
         self.memory_system.print_ofmap_sram_trace(ofmap_sram_filename)
         self.memory_system.print_ofmap_dram_trace(ofmap_dram_filename)
 
-    #
+    @method_logger
     def calc_report_data(self):
         assert self.runs_ready, 'Runs are not done yet'
 
@@ -250,12 +279,12 @@ class single_layer_sim:
 
         self.report_items_ready = True
 
-    #
+    @method_logger
     def get_layer_id(self):
         assert self.params_set_flag, 'Parameters are not set yet'
         return self.layer_id
 
-    #
+    @method_logger
     def get_compute_report_items(self):
         if not self.report_items_ready:
             self.calc_report_data()
@@ -263,7 +292,7 @@ class single_layer_sim:
         items = [self.total_cycles, self.stall_cycles, self.overall_util, self.mapping_eff, self.compute_util]
         return items
 
-    #
+    @method_logger
     def get_bandwidth_report_items(self):
         if not self.report_items_ready:
             self.calc_report_data()
@@ -273,7 +302,7 @@ class single_layer_sim:
 
         return items
 
-    #
+    @method_logger
     def get_detail_report_items(self):
         if not self.report_items_ready:
             self.calc_report_data()

@@ -1,7 +1,28 @@
 import sys
+import logging
 
+logger = logging.getLogger(__name__)
+
+def method_logger(method):
+
+    def inner(self, *args, **kwargs):
+        ret = method(self, *args, **kwargs)
+        # print(f'Call method {method.__name__} of {self} with {args, kwargs} returns {ret}')
+        return ret
+
+    return inner
+
+def func_logger(method):
+
+    def inner(*args, **kwargs):
+        ret = method(*args, **kwargs)
+        print(f'Call method {method.__name__} with {args, kwargs} returns {ret}')
+        return ret
+
+    return inner
 
 class memory_map:
+    @method_logger
     def __init__(self):
 
         self.num_mappings = 1
@@ -15,7 +36,7 @@ class memory_map:
         # Flags
         self.map_data_valid = False
 
-    #
+    @method_logger
     def set_single_bank_params(self, filter_offset=10000000, ofmap_offset=20000000):
         self.num_banks = 1
         self.num_mappings = 1
@@ -26,7 +47,7 @@ class memory_map:
 
         self.map_data_valid = True
 
-    #
+    @method_logger
     def scale_single_bank_params(self, num_layers=1):
         me = 'memory_map.' + 'scale_single_bank_params()'
 
@@ -46,7 +67,7 @@ class memory_map:
 
         self.num_mappings = num_layers
 
-    #
+    @method_logger
     def set_params(self, num_banks=1, ifmap_map_file='', filter_map_file='', ofmap_map_file=''):
         success = 0
 
@@ -75,7 +96,7 @@ class memory_map:
             self.num_mappings = min(len(self.ifmap_map_list), len(self.filter_map_list), len(self.ofmap_map_list))      # Min is used for safety, all the three should be of same len
             self.map_data_valid = True
 
-    #
+    @method_logger
     def read_ifmap_mapping_from_file(self, filename = ''):
         try:
             f = open(filename,'r')
@@ -90,7 +111,7 @@ class memory_map:
             print('Unable to read ifmap mapping from ' + filename)
             return 0
 
-    #
+    @method_logger
     def read_filter_mapping_from_file(self, filename=''):
         try:
             f = open(filename, 'r')
@@ -105,7 +126,7 @@ class memory_map:
             print('Unable to read filter mapping from ' + filename)
             return 0
 
-    #
+    @method_logger
     def read_ofmap_mapping_from_file(self, filename=''):
         try:
             f = open(filename, 'r')
@@ -120,7 +141,7 @@ class memory_map:
             print('Unable to read ofmap mapping from ' + filename)
             return 0
 
-    #
+    @method_logger
     def get_ifmap_mapping(self, layer_id=0):
         me = 'memory_map.' + 'get_ifmap_mapping'
 
@@ -142,7 +163,7 @@ class memory_map:
         else:
             return self.ifmap_map_list[layer_id]
 
-    #
+    @method_logger
     def get_filter_mapping(self, layer_id=0):
         me = 'memory_map.' + 'get_filter_mapping'
 
@@ -164,7 +185,7 @@ class memory_map:
         else:
             return self.filter_map_list[layer_id]
 
-    #
+    @method_logger
     def get_ofmap_mapping(self, layer_id=0):
         me = 'memory_map.' + 'get_ofmap_mapping'
 

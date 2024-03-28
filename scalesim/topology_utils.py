@@ -1,8 +1,9 @@
 import math
+from memory_map import method_logger
 
 
 class topologies(object):
-
+    @method_logger
     def __init__(self):
         self.current_topo_name = ""
         self.topo_file_name = ""
@@ -15,6 +16,7 @@ class topologies(object):
         self.topo_calc_spatiotemp_params_flag = False
 
     # reset topology parameters
+    @method_logger
     def reset(self):
         print("All data reset")
         self.current_topo_name = ""
@@ -25,7 +27,7 @@ class topologies(object):
         self.topo_calc_hyper_param_flag = False
         self.layers_calculated_hyperparams = []
 
-    #
+    @method_logger
     def load_layer_params_from_list(self, layer_name, elems_list=[]):
         self.topo_file_name = ''
         self.current_toponame = ''
@@ -35,14 +37,14 @@ class topologies(object):
         self.num_layers += 1
         self.topo_load_flag = True
 
-    #
+    @method_logger
     def load_arrays(self, topofile='', mnk_inputs=False):
         if mnk_inputs:
             self.load_arrays_gemm(topofile)
         else:
             self.load_arrays_conv(topofile)
 
-    #
+    @method_logger
     def load_arrays_gemm(self, topofile=''):
 
         self.topo_file_name = topofile.split('/')[-1]
@@ -79,6 +81,7 @@ class topologies(object):
         self.topo_load_flag = True
 
     # Load the topology data from the file
+    @method_logger
     def load_arrays_conv(self, topofile=""):
         first = True
         self.topo_file_name = topofile.split('/')[-1]
@@ -108,6 +111,7 @@ class topologies(object):
         self.topo_load_flag = True
 
     # Write the contents into a csv file
+    @method_logger
     def write_topo_file(self,
                       path="",
                       filename=""
@@ -151,6 +155,7 @@ class topologies(object):
         f.close()
 
     # LEGACY
+    @method_logger
     def append_topo_arrays(self, layer_name, elems):
         entry = [layer_name]
 
@@ -167,6 +172,7 @@ class topologies(object):
         self.topo_arrays.append(entry)
 
     # create network topology array
+    @method_logger
     def append_topo_entry_from_list(self, layer_entry_list=[]):
         assert 7 < len(layer_entry_list) < 10, 'Incorrect number of parameters'
 
@@ -181,6 +187,7 @@ class topologies(object):
         self.append_layer_entry(entry,toponame=self.current_topo_name)
 
     # add to the existing data from a list
+    @method_logger
     def append_layer_entry(self, entry, toponame=""):
         assert len(entry) == 9, 'Incorrect number of parameters'
 
@@ -193,6 +200,7 @@ class topologies(object):
         self.num_layers += 1
 
     # calculate hyper-parameters (ofmap dimensions, number of MACs, and window size of filter)
+    @method_logger
     def topo_calc_hyperparams(self, topofilename=""):
         if not self.topo_load_flag:
             self.load_arrays(topofilename)
@@ -214,6 +222,7 @@ class topologies(object):
             self.layers_calculated_hyperparams.append(entry)
         self.topo_calc_hyper_param_flag = True
 
+    @method_logger
     def calc_spatio_temporal_params(self, df='os', layer_id=0):
         s_row = -1
         s_col = -1
@@ -239,6 +248,7 @@ class topologies(object):
             self.topo_calc_hyperparams(self.topo_file_name)
         return s_row, s_col, t_time
 
+    @method_logger
     def set_spatio_temporal_params(self):
         if not self.topo_calc_hyper_param_flag:
             self.topo_calc_hyperparams(self.topo_file_name)
@@ -249,7 +259,8 @@ class topologies(object):
                 this_layer_params_arr.append([sr, sc, tt])
             self.spatio_temp_dim_arrays.append(this_layer_params_arr)
         self.topo_calc_spatiotemp_params_flag = True
-
+    
+    @method_logger
     def get_transformed_mnk_dimensions(self):
         if not self.topo_calc_hyper_param_flag:
             self.topo_calc_hyperparams(self.topo_file_name)
@@ -264,7 +275,7 @@ class topologies(object):
 
         return mnk_dims_arr
 
-
+    @method_logger
     def get_current_topo_name(self):
         current_topo_name = ""
         if self.topo_load_flag:
@@ -273,13 +284,14 @@ class topologies(object):
             print('Error: get_current_topo_name(): Topo file not read')
         return current_topo_name
 
+    @method_logger
     def get_num_layers(self):
         if not self.topo_load_flag:
             print("ERROR: topologies.get_num_layers: No array loaded")
             return
         return self.num_layers
 
-    #
+    @method_logger
     def get_layer_ifmap_dims(self, layer_id=0):
         if not (self.topo_load_flag or self.num_layers - 1 < layer_id):
             print("ERROR: topologies.get_layer_ifmap_dims: Invalid layer id")
@@ -287,7 +299,7 @@ class topologies(object):
         layer_params = self.topo_arrays[layer_id]
         return layer_params[1:3]    # Idx = 1, 2
 
-    #
+    @method_logger
     def get_layer_filter_dims(self, layer_id=0):
         if not (self.topo_load_flag or self.num_layers - 1 < layer_id):
             print("ERROR: topologies.get_layer_ifmap_dims: Invalid layer id")
@@ -295,20 +307,21 @@ class topologies(object):
         layer_params = self.topo_arrays[layer_id]
         return layer_params[3:5]    # Idx = 3, 4
 
-    #
+    @method_logger
     def get_layer_num_filters(self, layer_id=0):
         if not (self.topo_load_flag or self.num_layers - 1 < layer_id):
             print("ERROR: topologies.get_layer_num_filter: Invalid layer id")
         layer_params = self.topo_arrays[layer_id]
         return layer_params[6]
 
+    @method_logger
     def get_layer_num_channels(self, layer_id=0):
         if not (self.topo_load_flag or self.num_layers - 1 < layer_id):
             print("ERROR: topologies.get_layer_num_filter: Invalid layer id")
         layer_params = self.topo_arrays[layer_id]
         return layer_params[5]
 
-    #
+    @method_logger
     def get_layer_strides(self, layer_id=0):
         if not (self.topo_load_flag or self.num_layers - 1 < layer_id):
             print("ERROR: topologies.get_layer_strides: Invalid layer id")
@@ -316,7 +329,7 @@ class topologies(object):
         layer_params = self.topo_arrays[layer_id]
         return layer_params[7:9]
 
-
+    @method_logger
     def get_layer_window_size(self, layer_id=0):
         if not (self.topo_load_flag or self.num_layers - 1 < layer_id):
             print("ERROR: topologies.get_layer_num_filter: Invalid layer id")
@@ -325,6 +338,7 @@ class topologies(object):
         layer_calc_params = self.layers_calculated_hyperparams[layer_id]
         return layer_calc_params[3]
 
+    @method_logger
     def get_layer_num_ofmap_px(self, layer_id=0):
         if not (self.topo_load_flag or self.num_layers - 1 < layer_id):
             print("ERROR: topologies.get_layer_num_filter: Invalid layer id")
@@ -335,6 +349,7 @@ class topologies(object):
         num_ofmap_px = layer_calc_params[0] * layer_calc_params[1] * num_filters 
         return num_ofmap_px
 
+    @method_logger
     def get_layer_ofmap_dims(self, layer_id=0):
         if not (self.topo_load_flag or self.num_layers - 1 < layer_id):
             print("ERROR: topologies.get_layer_ofmap_dims: Invalid layer id")
@@ -343,6 +358,7 @@ class topologies(object):
         ofmap_dims = self.layers_calculated_hyperparams[layer_id][0:2]
         return ofmap_dims
 
+    @method_logger
     def get_layer_params(self, layer_id=0):
         if not (self.topo_load_flag or self.num_layers - 1 < layer_id):
             print("ERROR: topologies.get_layer_params: Invalid layer id")
@@ -350,6 +366,7 @@ class topologies(object):
         layer_params = self.topo_arrays[layer_id]
         return layer_params
 
+    @method_logger
     def get_layer_id_from_name(self, layer_name=""):
         if (not self.topo_load_flag) or layer_name == "":
             print("ERROR")
@@ -362,7 +379,7 @@ class topologies(object):
             print("WARNING: Not found")
         return indx
 
-    #
+    @method_logger
     def get_layer_name(self, layer_id=0):
         if not (self.topo_load_flag or self.num_layers - 1 < layer_id):
             print("ERROR: topologies.get_layer_name: Invalid layer id")
@@ -371,7 +388,7 @@ class topologies(object):
         name = self.topo_arrays[layer_id][0]
         return str(name)
 
-    #
+    @method_logger
     def get_layer_names(self):
         if not self.topo_load_flag:
             print("ERROR")
@@ -382,6 +399,7 @@ class topologies(object):
             layer_names.append(layer_name)
         return layer_names
 
+    @method_logger
     def get_layer_mac_ops(self, layer_id=0):
         if not self.topo_calc_hyper_param_flag:
             self.topo_calc_hyperparams(topofilename=self.topo_file_name)
@@ -389,6 +407,7 @@ class topologies(object):
         mac_ops = layer_hyper_param[2]
         return mac_ops
 
+    @method_logger
     def get_all_mac_ops(self):
         if not self.topo_calc_hyper_param_flag:
             self.topo_calc_hyperparams(topofilename=self.topo_file_name)
@@ -398,6 +417,7 @@ class topologies(object):
         return total_mac
 
     # spatio-temporal dimensions specific to dataflow
+    @method_logger
     def get_spatiotemporal_dims(self, layer_id=0, df=''):
         if df == '':
             df = self.df

@@ -1,17 +1,20 @@
 import os
-from scalesim.scale_config import scale_config
-from scalesim.topology_utils import topologies
-from scalesim.simulator import simulator as sim
+from scale_config import scale_config
+from topology_utils import topologies
+from simulator import simulator as sim
+
+from memory_map import method_logger
 
 
 class scalesim:
+    @method_logger
     def __init__(self,
                  save_disk_space=False,
                  verbose=True,
                  config='',
                  topology='',
                  input_type_gemm=False):
-
+        print("here")
         # Data structures
         self.config = scale_config()
         self.topo = topologies()
@@ -33,7 +36,7 @@ class scalesim:
 
         self.set_params(config_filename=config, topology_filename=topology)
 
-    #
+    @method_logger
     def set_params(self,
                    config_filename='',
                    topology_filename='' ):
@@ -71,7 +74,7 @@ class scalesim:
         #num_layers = self.topo.get_num_layers()
         #self.config.scale_memory_maps(num_layers=num_layers)
 
-    #
+    @method_logger
     def run_scale(self, top_path='.'):
 
         self.top_path = top_path
@@ -85,6 +88,7 @@ class scalesim:
         )
         self.run_once()
 
+    @method_logger
     def run_once(self):
 
         if self.verbose_flag:
@@ -111,7 +115,7 @@ class scalesim:
         if self.verbose_flag:
             print("************ SCALE SIM Run Complete ****************")
 
-    #
+    @method_logger
     def print_run_configs(self):
         df_string = "Output Stationary"
         df = self.config.get_dataflow()
@@ -144,7 +148,7 @@ class scalesim:
 
         print("====================================================")
 
-    #
+    @method_logger
     def get_total_cycles(self):
         me = 'scale.' + 'get_total_cycles()'
         if not self.run_done_flag:

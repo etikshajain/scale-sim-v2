@@ -2,14 +2,16 @@ import time
 import numpy as np
 from tqdm import tqdm
 
-from scalesim.memory.read_buffer import read_buffer as rdbuf
-from scalesim.memory.read_buffer_estimate_bw import ReadBufferEstimateBw as rdbuf_est
-from scalesim.memory.read_port import read_port as rdport
-from scalesim.memory.write_buffer import write_buffer as wrbuf
-from scalesim.memory.write_port import write_port as wrport
+from memory.read_buffer import read_buffer as rdbuf
+from memory.read_buffer_estimate_bw import ReadBufferEstimateBw as rdbuf_est
+from memory.read_port import read_port as rdport
+from memory.write_buffer import write_buffer as wrbuf
+from memory.write_port import write_port as wrport
+from memory_map import method_logger
 
 
 class double_buffered_scratchpad:
+    @method_logger
     def __init__(self):
         self.ifmap_buf = rdbuf()
         self.filter_buf = rdbuf()
@@ -55,7 +57,7 @@ class double_buffered_scratchpad:
         self.traces_valid = False
         self.params_valid_flag = True
 
-    #
+    @method_logger
     def set_params(self,
                    verbose=True,
                    estimate_bandwidth_mode=False,
@@ -107,7 +109,7 @@ class double_buffered_scratchpad:
 
         self.params_valid_flag = True
 
-    #
+    @method_logger
     def set_read_buf_prefetch_matrices(self,
                                        ifmap_prefetch_mat=np.zeros((1,1)),
                                        filter_prefetch_mat=np.zeros((1,1))
@@ -116,7 +118,7 @@ class double_buffered_scratchpad:
         self.ifmap_buf.set_fetch_matrix(ifmap_prefetch_mat)
         self.filter_buf.set_fetch_matrix(filter_prefetch_mat)
 
-    #
+    @method_logger
     def reset_buffer_states(self):
 
         self.ifmap_buf.reset()
@@ -124,6 +126,7 @@ class double_buffered_scratchpad:
         self.ofmap_buf.reset()
 
     # The following are just shell methods for users to control each mem individually
+    @method_logger
     def service_ifmap_reads(self,
                             incoming_requests_arr_np,   # 2D array with the requests
                             incoming_cycles_arr):
@@ -131,7 +134,7 @@ class double_buffered_scratchpad:
 
         return out_cycles_arr_np
 
-    #
+    @method_logger
     def service_filter_reads(self,
                             incoming_requests_arr_np,   # 2D array with the requests
                             incoming_cycles_arr):
@@ -139,7 +142,7 @@ class double_buffered_scratchpad:
 
         return out_cycles_arr_np
 
-    #
+    @method_logger
     def service_ofmap_writes(self,
                              incoming_requests_arr_np,  # 2D array with the requests
                              incoming_cycles_arr):
@@ -148,11 +151,13 @@ class double_buffered_scratchpad:
 
         return out_cycles_arr_np
 
-    #
+    @method_logger
     def service_memory_requests(self, ifmap_demand_mat, filter_demand_mat, ofmap_demand_mat):
         assert self.params_valid_flag, 'Memories not initialized yet'
 
         ofmap_lines = ofmap_demand_mat.shape[0]
+
+        print("yoyo")
 
         self.total_cycles = 0
         self.stall_cycles = 0
@@ -201,6 +206,9 @@ class double_buffered_scratchpad:
         ifmap_services_cycles_np = np.asarray(ifmap_serviced_cycles).reshape((len(ifmap_serviced_cycles), 1))
         self.ifmap_trace_matrix = np.concatenate((ifmap_services_cycles_np, ifmap_demand_mat), axis=1)
 
+        print('self.ifmap_trace_matrix')
+        print(self.ifmap_trace_matrix)
+
         filter_services_cycles_np = np.asarray(filter_serviced_cycles).reshape((len(filter_serviced_cycles), 1))
         self.filter_trace_matrix = np.concatenate((filter_services_cycles_np, filter_demand_mat), axis=1)
 
@@ -213,6 +221,7 @@ class double_buffered_scratchpad:
 
     # This is the trace computation logic of this memory system
     # Anand: This is too complex, perform the serve cycle by cycle for the requests
+    @method_logger
     def service_memory_requests_old(self, ifmap_demand_mat, filter_demand_mat, ofmap_demand_mat):
         # TODO: assert sanity check
         assert self.params_valid_flag, 'Memories not initialized yet'
@@ -350,17 +359,17 @@ class double_buffered_scratchpad:
         # END of serving demands from memory
         self.traces_valid = True
 
-    #
+    @method_logger
     def get_total_compute_cycles(self):
         assert self.traces_valid, 'Traces not generated yet'
         return self.total_cycles
 
-    #
+    @method_logger
     def get_stall_cycles(self):
         assert self.traces_valid, 'Traces not generated yet'
         return self.stall_cycles
 
-    #
+    @method_logger
     def get_ifmap_sram_start_stop_cycles(self):
         assert self.traces_valid, 'Traces not generated yet'
 
@@ -389,7 +398,7 @@ class double_buffered_scratchpad:
 
         return self.ifmap_sram_start_cycle, self.ifmap_sram_stop_cycle
 
-    #
+    @method_logger
     def get_filter_sram_start_stop_cycles(self):
         assert self.traces_valid, 'Traces not generated yet'
 
@@ -418,7 +427,7 @@ class double_buffered_scratchpad:
 
         return self.filter_sram_start_cycle, self.filter_sram_stop_cycle
 
-    #
+    @method_logger
     def get_ofmap_sram_start_stop_cycles(self):
         assert self.traces_valid, 'Traces not generated yet'
 
@@ -447,7 +456,7 @@ class double_buffered_scratchpad:
 
         return self.ofmap_sram_start_cycle, self.ofmap_sram_stop_cycle
 
-    #
+    @method_logger
     def get_ifmap_dram_details(self):
         assert self.traces_valid, 'Traces not generated yet'
 
@@ -457,7 +466,7 @@ class double_buffered_scratchpad:
 
         return self.ifmap_dram_start_cycle, self.ifmap_dram_stop_cycle, self.ifmap_dram_reads
 
-    #
+    @method_logger
     def get_filter_dram_details(self):
         assert self.traces_valid, 'Traces not generated yet'
 
@@ -467,7 +476,7 @@ class double_buffered_scratchpad:
 
         return self.filter_dram_start_cycle, self.filter_dram_stop_cycle, self.filter_dram_reads
 
-    #
+    @method_logger
     def get_ofmap_dram_details(self):
         assert self.traces_valid, 'Traces not generated yet'
 
@@ -477,39 +486,39 @@ class double_buffered_scratchpad:
 
         return self.ofmap_dram_start_cycle, self.ofmap_dram_stop_cycle, self.ofmap_dram_writes
 
-    #
+    @method_logger
     def get_ifmap_sram_trace_matrix(self):
         assert self.traces_valid, 'Traces not generated yet'
         return self.ifmap_trace_matrix
 
-    #
+    @method_logger
     def get_filter_sram_trace_matrix(self):
         assert self.traces_valid, 'Traces not generated yet'
         return self.filter_trace_matrix
 
-    #
+    @method_logger
     def get_ofmap_sram_trace_matrix(self):
         assert self.traces_valid, 'Traces not generated yet'
         return self.ofmap_trace_matrix
 
-    #
+    @method_logger
     def get_sram_trace_matrices(self):
         assert self.traces_valid, 'Traces not generated yet'
         return self.ifmap_trace_matrix, self.filter_trace_matrix, self.ofmap_trace_matrix
 
-    #
+    @method_logger
     def get_ifmap_dram_trace_matrix(self):
         return self.ifmap_buf.get_trace_matrix()
 
-    #
+    @method_logger
     def get_filter_dram_trace_matrix(self):
         return self.filter_buf.get_trace_matrix()
 
-    #
+    @method_logger
     def get_ofmap_dram_trace_matrix(self):
         return self.ofmap_buf.get_trace_matrix()
 
-    #
+    @method_logger
     def get_dram_trace_matrices(self):
         dram_ifmap_trace = self.ifmap_buf.get_trace_matrix()
         dram_filter_trace = self.filter_buf.get_trace_matrix()
@@ -517,30 +526,30 @@ class double_buffered_scratchpad:
 
         return dram_ifmap_trace, dram_filter_trace, dram_ofmap_trace
 
-        #
+    @method_logger
     def print_ifmap_sram_trace(self, filename):
         assert self.traces_valid, 'Traces not generated yet'
         np.savetxt(filename, self.ifmap_trace_matrix, fmt='%i', delimiter=",")
 
-    #
+    @method_logger
     def print_filter_sram_trace(self, filename):
         assert self.traces_valid, 'Traces not generated yet'
         np.savetxt(filename, self.filter_trace_matrix, fmt='%i', delimiter=",")
 
-    #
+    @method_logger
     def print_ofmap_sram_trace(self, filename):
         assert self.traces_valid, 'Traces not generated yet'
         np.savetxt(filename, self.ofmap_trace_matrix, fmt='%i', delimiter=",")
 
-    #
+    @method_logger
     def print_ifmap_dram_trace(self, filename):
         self.ifmap_buf.print_trace(filename)
 
-    #
+    @method_logger
     def print_filter_dram_trace(self, filename):
         self.filter_buf.print_trace(filename)
 
-    #
+    @method_logger
     def print_ofmap_dram_trace(self, filename):
         self.ofmap_buf.print_trace(filename)
 

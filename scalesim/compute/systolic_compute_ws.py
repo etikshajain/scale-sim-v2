@@ -1,10 +1,12 @@
 import math
 import numpy as np
 from tqdm import tqdm
-from scalesim.scale_config import scale_config as cfg
+from scale_config import scale_config as cfg
+from memory_map import method_logger, func_logger
 
 
 class systolic_compute_ws:
+    #@method_logger
     def __init__(self):
         # Params set by user
         self.config = cfg()
@@ -46,7 +48,7 @@ class systolic_compute_ws:
         self.prefetch_mat_ready_flag = False
         self.demand_mat_ready_flag = False
 
-    #
+    #@method_logger
     def set_params(self,
                    config_obj=cfg(),
                    ifmap_op_mat = np.zeros((1,1)),
@@ -75,7 +77,7 @@ class systolic_compute_ws:
 
         self.params_set_flag = True
 
-    #
+    #@method_logger
     def create_prefetch_matrices(self):
         assert self.params_set_flag, 'Parameters are not set'
 
@@ -84,7 +86,7 @@ class systolic_compute_ws:
 
         self.prefetch_mat_ready_flag = True
 
-    #
+    #@method_logger
     def create_ifmap_prefetch_mat(self):
         assert self.params_set_flag, 'Parameters are not set'
 
@@ -135,7 +137,7 @@ class systolic_compute_ws:
         pbar.close()
         self.ifmap_prefetch_matrix = prefetches
 
-    #
+    #@method_logger
     def create_filter_prefetch_mat(self):
         assert self.params_set_flag, 'Parameters are not set'
 
@@ -158,7 +160,7 @@ class systolic_compute_ws:
 
         # Note: ISSUE #15: no skewing happens in the Filter for WS so this issue does not apply.
 
-    #
+    #@method_logger
     def create_demand_matrices(self):
         assert self.params_set_flag, 'Parameters are not set'
 
@@ -174,7 +176,7 @@ class systolic_compute_ws:
 
         self.demand_mat_ready_flag = True
 
-    #
+    #@method_logger
     def create_ifmap_demand_mat(self):
         assert self.params_set_flag, 'Parameters are not set'
 
@@ -219,7 +221,7 @@ class systolic_compute_ws:
         self.ifmap_demand_matrix = np.concatenate(ifmap_demand_matrix_list)
     # END of IFMAP demand generation
 
-    #
+    #@method_logger
     def create_filter_demand_mat(self):
         assert self.params_set_flag, 'Parameters are not set'
 
@@ -277,7 +279,7 @@ class systolic_compute_ws:
         self.filter_demand_matrix = np.concatenate(filter_demand_matrix_list)
         # No skew needed in filters for weight stationary
 
-    #
+    #@method_logger
     def create_ofmap_demand_mat(self):
         assert self.params_set_flag, 'Parameters are not set'
 
@@ -315,56 +317,56 @@ class systolic_compute_ws:
         self.ofmap_demand_matrix = np.concatenate(ofmap_demand_matrix_list)
     # END of OFMAP demand generation
 
-    #
+    #@method_logger
     def get_ifmap_prefetch_mat(self):
         if not self.prefetch_mat_ready_flag:
             self.create_prefetch_matrices()
 
         return self.ifmap_prefetch_matrix
 
-    #
+    #@method_logger
     def get_filter_prefetch_mat(self):
         if not self.prefetch_mat_ready_flag:
             self.create_prefetch_matrices()
 
         return self.filter_prefetch_matrix
 
-    #
+    #@method_logger
     def get_prefetch_matrices(self):
         if not self.prefetch_mat_ready_flag:
             self.create_prefetch_matrices()
 
         return self.ifmap_prefetch_matrix, self.filter_prefetch_matrix
 
-    #
+    #@method_logger
     def get_ifmap_demand_mat(self):
         if not self.demand_mat_ready_flag:
             self.create_demand_matrices()
 
         return self.ifmap_demand_matrix
 
-    #
+    #@method_logger
     def get_filter_demand_mat(self):
         if not self.demand_mat_ready_flag:
             self.create_demand_matrices()
 
         return self.filter_demand_matrix
 
-    #
+    #@method_logger
     def get_ofmap_demand_mat(self):
         if not self.demand_mat_ready_flag:
             self.create_demand_matrices()
 
         return self.ofmap_demand_matrix
 
-    #
+    #@method_logger
     def get_demand_matrices(self):
         if not self.demand_mat_ready_flag:
             self.create_demand_matrices()
 
         return self.ifmap_demand_matrix, self.filter_demand_matrix, self.ofmap_demand_matrix
 
-    #
+    #@method_logger
     def get_avg_mapping_efficiency(self):
         assert self.demand_mat_ready_flag, 'Computes not ready yet'
 
@@ -375,7 +377,7 @@ class systolic_compute_ws:
 
         return avg_mapping_eff
 
-    #
+    #@method_logger
     def get_avg_compute_utilization(self):
         assert self.demand_mat_ready_flag, 'Computes not ready yet'
 
@@ -386,23 +388,23 @@ class systolic_compute_ws:
 
         return avg_compute_util
 
-    #
+    #@method_logger
     def get_ifmap_requests(self):
         assert self.demand_mat_ready_flag, 'Computes not ready yet'
         return self.ifmap_reads
 
-    #
+    #@method_logger
     def get_filter_requests(self):
         assert self.demand_mat_ready_flag, 'Computes not ready yet'
         return self.filter_reads
 
-    #
+    #@method_logger
     def get_ofmap_requests(self):
         assert self.demand_mat_ready_flag, 'Computes not ready yet'
         return self.ofmap_writes
 
 
-#
+#@method_logger
 def skew_matrix(input_matrix_np):
     rows = input_matrix_np.shape[0]
     cols = input_matrix_np.shape[1]
