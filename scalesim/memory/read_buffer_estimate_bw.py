@@ -121,6 +121,7 @@ class ReadBufferEstimateBw:
 
         # If this is a new address, otherwise its a hit
         if self.check_hit(addr):
+            print("################################# CACHE HIT #####################################:", cycle, addr)
             return
         # print("################################# CACHE MISS #####################################:", cycle, addr)
         if addr not in self.current_set:
