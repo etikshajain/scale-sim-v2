@@ -157,8 +157,6 @@ class double_buffered_scratchpad:
 
         ofmap_lines = ofmap_demand_mat.shape[0]
 
-        print("yoyo")
-
         self.total_cycles = 0
         self.stall_cycles = 0
 
@@ -206,8 +204,8 @@ class double_buffered_scratchpad:
         ifmap_services_cycles_np = np.asarray(ifmap_serviced_cycles).reshape((len(ifmap_serviced_cycles), 1))
         self.ifmap_trace_matrix = np.concatenate((ifmap_services_cycles_np, ifmap_demand_mat), axis=1)
 
-        print('self.ifmap_trace_matrix')
-        print(self.ifmap_trace_matrix)
+        # print('self.ifmap_trace_matrix')
+        # print(self.ifmap_trace_matrix)
 
         filter_services_cycles_np = np.asarray(filter_serviced_cycles).reshape((len(filter_serviced_cycles), 1))
         self.filter_trace_matrix = np.concatenate((filter_services_cycles_np, filter_demand_mat), axis=1)

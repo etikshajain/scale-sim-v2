@@ -71,7 +71,7 @@ class read_buffer:
         self.active_buf_size = int(math.ceil(self.total_size_elems * self.active_buf_frac))
         self.prefetch_buf_size = self.total_size_elems - self.active_buf_size
 
-        print("Prefetch buffer size:",self.prefetch_buf_size)
+        # print("Prefetch buffer size:",self.prefetch_buf_size)
 
     @method_logger
     def reset(self): # TODO: check if all resets are working propoerly
@@ -117,23 +117,38 @@ class read_buffer:
         # The operand matrix determines what to pre-fetch into both active and prefetch buffers
         # In 'user' mode, this will be set in the set_params
 
-        num_elems = fetch_matrix_np.shape[0] * fetch_matrix_np.shape[1]
+        # remove -1 elements:
+        elems = []
+        for i in range(len(fetch_matrix_np)):
+            for j in range(len(fetch_matrix_np[i])):
+                if(fetch_matrix_np[i][j]!=-1):
+                    elems.append(fetch_matrix_np[i][j])
+
+        # num_elems = fetch_matrix_np.shape[0] * fetch_matrix_np.shape[1]
+        num_elems = len(elems)
         num_lines = int(math.ceil(num_elems / self.req_gen_bandwidth))
         self.fetch_matrix = np.ones((num_lines, self.req_gen_bandwidth)) * -1
 
         # Put stuff into the fetch matrix
         # This is done to ensure that there is no shape mismatch
         # Not sure if this is the optimal way to do it or not
-        for i in range(num_elems):
-            src_row = math.floor(i / fetch_matrix_np.shape[1])
-            src_col = math.floor(i % fetch_matrix_np.shape[1])
+        # for i in range(num_elems):
+        #     src_row = math.floor(i / fetch_matrix_np.shape[1])
+        #     src_col = math.floor(i % fetch_matrix_np.shape[1])
 
+        #     dest_row = math.floor(i / self.req_gen_bandwidth)
+        #     dest_col = math.floor(i % self.req_gen_bandwidth)
+
+        #     self.fetch_matrix[dest_row][dest_col] = fetch_matrix_np[src_row][src_col]
+        
+        for i in range(len(elems)):
             dest_row = math.floor(i / self.req_gen_bandwidth)
             dest_col = math.floor(i % self.req_gen_bandwidth)
 
-            self.fetch_matrix[dest_row][dest_col] = fetch_matrix_np[src_row][src_col]
+            self.fetch_matrix[dest_row][dest_col] = elems[i]
 
         # Once the fetch matrices are set, populate the data structure for fast lookups and servicing
+        print("fetch matrix:", self.fetch_matrix)
         self.prepare_hashed_buffer()
 
     @method_logger
@@ -216,7 +231,6 @@ class read_buffer:
         #        If hit, return with hit latency
         #        Else, make the contents of prefetch buffer as active and then check
         #              finish till an ongoing prefetch is done before reassiging prefetch buffer
-        print("here")
         if not self.active_buf_full_flag:
             start_cycle = incoming_cycles_arr[0][0]
             self.prefetch_active_buffer(start_cycle=start_cycle)    # Needs to use the entire operand matrix

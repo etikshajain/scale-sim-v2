@@ -2,6 +2,8 @@ import os
 from scale_config import scale_config
 from topology_utils import topologies
 from simulator import simulator as sim
+import pandas as pd
+import csv
 
 from memory_map import method_logger
 
@@ -14,7 +16,6 @@ class scalesim:
                  config='',
                  topology='',
                  input_type_gemm=False):
-        print("here")
         # Data structures
         self.config = scale_config()
         self.topo = topologies()
@@ -87,6 +88,41 @@ class scalesim:
             save_trace=save_trace
         )
         self.run_once()
+
+
+        # save finals comparable stats into final.csv
+        files = os.listdir(f'./test_runs/{self.config.run_name}')
+        for i in range(self.config.memory_banks):
+            cols = [self.config_file.split('/')[1], self.topology_file.split('/')[-1], self.config.memory_banks, self.config.ifmap_sz_kb, self.config.df,self.config.use_user_bandwidth]
+            bwr = f'BANDWIDTH_REPORT_{i}.csv'
+            dar = f'DETAILED_ACCESS_REPORT_{i}.csv' 
+            df_bwr = pd.read_csv(f'./test_runs/{self.config.run_name}/{bwr}')
+            df_dar = pd.read_csv(f'./test_runs/{self.config.run_name}/{dar}')
+
+            for (index1, row1), (index2, row2) in zip(df_bwr.iterrows(), df_dar.iterrows()):
+                # print(row1)
+                r = cols.copy()
+                r.append(self.config.mapping)
+                r.append(row1['LayerID'])
+                r.append(i)
+                r.append(row2[' DRAM IFMAP Stop Cycle']-row2[' DRAM IFMAP Start Cycle'])
+                r.append(row2[' DRAM IFMAP Reads'])
+                r.append(row2[' DRAM Filter Stop Cycle']-row2[' DRAM Filter Start Cycle'])
+                r.append(row2[' DRAM Filter Reads'])
+                r.append(row2[' DRAM OFMAP Stop Cycle']-row2[' DRAM OFMAP Start Cycle'])
+                r.append(row2[' DRAM OFMAP Writes'])
+                r.append(row1[' Avg IFMAP DRAM BW'])
+                r.append(row1[' Avg FILTER DRAM BW'])
+                r.append(row1[' Avg OFMAP DRAM BW'])
+                
+                with open('./test_runs/final.csv', 'a', newline='') as csvfile:
+                    # Create a CSV writer object
+                    csv_writer = csv.writer(csvfile)
+                    
+                    # Write the row to the CSV file
+                    csv_writer.writerow(r)
+
+
 
     @method_logger
     def run_once(self):

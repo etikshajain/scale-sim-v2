@@ -74,7 +74,7 @@ class ReadBufferEstimateBw:
         self.active_buf_size = int(math.ceil(self.total_size_elems * self.active_buf_frac))
         self.prefetch_buf_size = self.total_size_elems - self.active_buf_size
 
-        print("Prefetch buffer size:",self.prefetch_buf_size)
+        # print("Prefetch buffer size:",self.prefetch_buf_size)
 
         #
         self.num_items_per_set = math.floor(self.total_size_elems / 100)
@@ -321,6 +321,8 @@ class ReadBufferEstimateBw:
     @method_logger
     def get_external_access_start_stop_cycles(self):
         assert self.trace_valid, 'Traces not ready yet'
+        if len(self.trace_matrix)==0:
+            return 0,0
         start_cycle = self.trace_matrix[0][0]
         end_cycle = self.trace_matrix[-1][0]
 

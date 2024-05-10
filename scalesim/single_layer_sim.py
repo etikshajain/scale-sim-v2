@@ -11,7 +11,6 @@ from memory_map import method_logger
 
 
 class single_layer_sim:
-    @method_logger
     def __init__(self):
         self.layer_id = 0
         self.topo = topo()
@@ -19,7 +18,7 @@ class single_layer_sim:
 
         self.op_mat_obj = opmat()
         self.compute_system = systolic_compute_os()
-        self.memory_system = mem_dbsp()
+        self.memory_system = [mem_dbsp()]
 
         self.verbose = True
 
@@ -65,12 +64,15 @@ class single_layer_sim:
         self.ofmap_dram_stop_cycle = 0
         self.ofmap_dram_writes = 0
 
+        self.compute_items_list = []
+        self.bw_items_list = []
+        self.detail_items_list = []
+
         self.params_set_flag = False
         self.memory_system_ready_flag = False
-        self.runs_ready = False
+        self.runs_ready = [False]
         self.report_items_ready = False
 
-    @method_logger
     def set_params(self,
                    layer_id=0,
                    config_obj=cfg(), topology_obj=topo(),
@@ -85,6 +87,9 @@ class single_layer_sim:
                                    topoutil_obj=self.topo,
                                    )
 
+        self.num_banks = self.config.memory_banks
+        self.memory_system = [mem_dbsp() for _ in range(self.num_banks)]
+        self.runs_ready = [False for _ in range(self.num_banks)]
         self.dataflow = self.config.get_dataflow()
         if self.dataflow == 'os':
             self.compute_system = systolic_compute_os()
@@ -101,12 +106,12 @@ class single_layer_sim:
 
     # This communicates that the memory is being managed externally
     # And the class will not interfere with setting it up
-    @method_logger
-    def set_memory_system(self, mem_sys_obj=mem_dbsp()):
+    def set_memory_system(self, mem_sys_obj=[mem_dbsp()]):
+        # assert self.num_banks == len(mem_sys_obj)
+
         self.memory_system = mem_sys_obj
         self.memory_system_ready_flag = True
 
-    @method_logger
     def run(self):
         assert self.params_set_flag, 'Parameters are not set. Run set_params()'
 
@@ -129,31 +134,28 @@ class single_layer_sim:
         # 1.3 Get the no compute demand matrices from for 2 operands and the output
         ifmap_prefetch_mat, filter_prefetch_mat = self.compute_system.get_prefetch_matrices()
         ifmap_demand_mat, filter_demand_mat, ofmap_demand_mat = self.compute_system.get_demand_matrices()
-
-
-        print("\nDimensions of Operand Matrices:")
-        print("IFMAP Operand Matrix:", ifmap_op_mat.shape)
-        print("Filter Operand Matrix:", filter_op_mat.shape)
-        print("OFMAP Operand Matrix:", ofmap_op_mat.shape)
-
-        print("\nDimensions of Prefetch Matrices:")
-        print("IFMAP Prefetch Matrix:", ifmap_prefetch_mat.shape)
-        print("Filter Prefetch Matrix:", filter_prefetch_mat.shape)
-
-        print("\nDimensions of Demand Matrices:")
-        print("IFMAP Demand Matrix:", ifmap_demand_mat.shape)
-        print("Filter Demand Matrix:", filter_demand_mat.shape)
-        print("OFMAP Demand Matrix:", ofmap_demand_mat.shape)
         #print('DEBUG: Compute operations done')
-
-        print("\nCompute Metrics:")
-        print("Mapping efficiency:", self.compute_system.get_avg_mapping_efficiency() * 100)
-        print("Compute utilization:", self.compute_system.get_avg_compute_utilization() * 100)
-        print("OFMAP SRAM Writes:", self.compute_system.get_ofmap_requests())
-        print("IFMAP SRAM Reads:", self.compute_system.get_ifmap_requests())
-        print("Filter SRAM Reads:", self.compute_system.get_filter_requests())
-
         # 2. Setup the memory system and run the demands through it to find any memory bottleneck and generate traces
+
+        # 2.0 Assign addresses to memory banks
+        mem_banks = self.config.memory_banks
+        mem_map = {}
+        if self.config.mapping==1:
+            mem_map = self.memory_mapping_tech_1(ifmap_demand_mat, mem_map, mem_banks)
+            mem_map = self.memory_mapping_tech_1(filter_demand_mat, mem_map, mem_banks)
+            mem_map = self.memory_mapping_tech_1(ofmap_demand_mat, mem_map, mem_banks)
+        if self.config.mapping==2:
+            mem_map = self.memory_mapping_tech_2(ifmap_demand_mat, mem_map, mem_banks)
+            mem_map = self.memory_mapping_tech_2(filter_demand_mat, mem_map, mem_banks)
+            mem_map = self.memory_mapping_tech_2(ofmap_demand_mat, mem_map, mem_banks)
+        if self.config.mapping==3:
+            mem_map = self.memory_mapping_tech_3(ifmap_demand_mat, mem_map, mem_banks)
+            mem_map = self.memory_mapping_tech_3(filter_demand_mat, mem_map, mem_banks)
+            mem_map = self.memory_mapping_tech_3(ofmap_demand_mat, mem_map, mem_banks)
+        if self.config.mapping==4:
+            mem_map = self.memory_mapping_tech_4(ifmap_demand_mat, mem_map, mem_banks)
+            mem_map = self.memory_mapping_tech_4(filter_demand_mat, mem_map, mem_banks)
+            mem_map = self.memory_mapping_tech_4(ofmap_demand_mat, mem_map, mem_banks)
 
         # 2.1 Setup the memory system if it was not setup externally
         if not self.memory_system_ready_flag:
@@ -185,7 +187,16 @@ class single_layer_sim:
                 filter_backing_bw = 10
                 ofmap_backing_bw = arr_col
 
-            self.memory_system.set_params(
+            for i in range(self.num_banks):
+                # in case of user mode, bw of each bank is specified by user
+                if self.config.use_user_dram_bandwidth():
+                    bws = self.config.get_bandwidths_as_list()
+                    ifmap_backing_bw = bws[i]
+                    filter_backing_bw = bws[i]
+                    ofmap_backing_bw = bws[i]
+                
+                # create new memory system
+                self.memory_system[i].set_params(
                     word_size=word_size,
                     ifmap_buf_size_bytes=ifmap_buf_size_bytes,
                     filter_buf_size_bytes=filter_buf_size_bytes,
@@ -196,51 +207,244 @@ class single_layer_sim:
                     ofmap_backing_buf_bw=ofmap_backing_bw,
                     verbose=self.verbose,
                     estimate_bandwidth_mode=estimate_bandwidth_mode
-            )
+                )
 
         # 2.2 Install the prefetch matrices to the read buffers to finish setup
-        if self.config.use_user_dram_bandwidth() :
-            self.memory_system.set_read_buf_prefetch_matrices(ifmap_prefetch_mat=ifmap_prefetch_mat,
-                                                              filter_prefetch_mat=filter_prefetch_mat)
+        # TODO(col719) : will be done later
+        if self.config.use_user_dram_bandwidth():
+            print(ifmap_prefetch_mat)
+            print(filter_prefetch_mat)
+            for i in range(self.num_banks):
+                ifmap_pm = ifmap_prefetch_mat.copy()
+                for x in range(len(ifmap_prefetch_mat)):
+                    for y in range(len(ifmap_prefetch_mat[x])):
+                        val = ifmap_prefetch_mat[x][y]
+                        if(val!=-1 and mem_map[val]==i):
+                            ifmap_pm[x][y]=val
+                        else:
+                            ifmap_pm[x][y]=-1
 
+                filter_pm = filter_prefetch_mat.copy()
+                for x in range(len(filter_prefetch_mat)):
+                    for y in range(len(filter_prefetch_mat[x])):
+                        val = filter_prefetch_mat[x][y]
+                        if(val!=-1 and mem_map[val]==i):
+                            filter_pm[x][y]=val
+                        else:
+                            filter_pm[x][y]=-1
+                
+                print(ifmap_pm)
+                print(filter_pm)
+
+                self.memory_system[i].set_read_buf_prefetch_matrices(ifmap_prefetch_mat=ifmap_pm,
+                                                              filter_prefetch_mat=filter_pm)
+
+        print(f'original ifmap demand matrix:\n{ifmap_demand_mat}')
         # 2.3 Start sending the requests through the memory system until
         # all the OFMAP memory requests have been serviced
-        self.memory_system.service_memory_requests(ifmap_demand_mat, filter_demand_mat, ofmap_demand_mat)
+        for i in range(self.num_banks):
+            ifmap_dm = ifmap_demand_mat.copy()
+            for x in range(len(ifmap_demand_mat)):
+                for y in range(len(ifmap_demand_mat[x])):
+                    val = ifmap_demand_mat[x][y]
+                    if(val!=-1 and mem_map[val]==i):
+                        ifmap_dm[x][y]=val
+                    else:
+                        ifmap_dm[x][y]=-1
 
-        self.runs_ready = True
+            filter_dm = filter_demand_mat.copy()
+            for x in range(len(filter_demand_mat)):
+                for y in range(len(filter_demand_mat[x])):
+                    val = filter_demand_mat[x][y]
+                    if(val!=-1 and mem_map[val]==i):
+                        filter_dm[x][y]=val
+                    else:
+                        filter_dm[x][y]=-1
+
+            ofmap_dm = ofmap_demand_mat.copy()
+            for x in range(len(ofmap_demand_mat)):
+                for y in range(len(ofmap_demand_mat[x])):
+                    val = ofmap_demand_mat[x][y]
+                    if(val!=-1 and mem_map[val]==i):
+                        ofmap_dm[x][y]=val
+                    else:
+                        ofmap_dm[x][y]=-1
+
+            print(f'ifmap demand matrix of bank {i}:\n{ifmap_dm}')
+            # print(f'filter demand matrix of bank {i}:{filter_dm}')
+            # print(f'ofmap demand matrix of bank {i}:{ofmap_dm}')
+            self.memory_system[i].service_memory_requests(ifmap_dm, filter_dm, ofmap_dm)
+            self.runs_ready[i]=True
+
+            # Metrics
+            self.calc_report_data(self.memory_system[i], i)
+
+            compute_items = self.get_compute_report_items()
+            self.compute_items_list.append(compute_items)
+            bw_items = self.get_bandwidth_report_items()
+            self.bw_items_list.append(bw_items)
+            detail_items = self.get_detail_report_items()
+            self.detail_items_list.append(detail_items)
+
+
+        # self.runs_ready = True
+    
+    # This mapping method involves cyclically assigning incoming data blocks to memory banks 
+    def memory_mapping_tech_1(self, demand_mat, mem_map, num_of_banks):
+        curr=0
+        for row in demand_mat:
+            for addr in row:
+                if addr!=-1 and addr not in mem_map:
+                    mem_map[addr]=curr
+                    curr+=1
+                    if curr==num_of_banks:
+                        curr=0
+        return mem_map
+    
+    # Block mapping
+    def memory_mapping_tech_2(self, demand_mat, mem_map, num_of_banks):
+        unique_elem_count=0
+        occ_map = {}
+        for row in demand_mat:
+            for addr in row:
+                if addr!=-1 and addr not in occ_map:
+                    unique_elem_count+=1
+                else:
+                    occ_map[addr]=1
+        
+        bank_size = unique_elem_count/num_of_banks + 1
+        curr=0
+        elems=0
+        for row in demand_mat:
+            for addr in row:
+                if addr!=-1 and addr not in mem_map:
+                    mem_map[addr]=curr
+                    elems+=1
+                    if elems>=bank_size:
+                        curr+=1
+        return mem_map
+    
+    # grouping by frequencies
+    def memory_mapping_tech_3(self, demand_mat, mem_map, num_of_banks):
+        unique_elems= []
+        occ_map = {}
+        for row in demand_mat:
+            for addr in row:
+                if addr!=-1 and addr not in occ_map:
+                    unique_elems.append(addr)
+                    occ_map[addr]=1
+                else:
+                    if addr!=-1:
+                        occ_map[addr]+=1
+        freqs = []
+        for elem in unique_elems:
+            freqs.append([occ_map[elem],elem])
+        freqs.sort(reverse=True)
+        bank_size = len(unique_elems)/num_of_banks + 1
+        curr=0
+        elems=0
+        for row in freqs:
+            addr = row[1]
+            if addr!=-1 and addr not in mem_map:
+                mem_map[addr]=curr
+                elems+=1
+                if elems>=bank_size:
+                    curr+=1
+        return mem_map
+    
+    # grouping by address location
+    def memory_mapping_tech_4(self, demand_mat, mem_map, num_of_banks):
+        unique_elems= []
+        occ_map = {}
+        for row in demand_mat:
+            for addr in row:
+                if addr!=-1 and addr not in occ_map:
+                    unique_elems.append(addr)
+                    occ_map[addr]=1
+                else:
+                    if addr!=-1:
+                        occ_map[addr]+=1
+        unique_elems.sort()
+        bank_size = len(unique_elems)/num_of_banks + 1
+        curr=0
+        elems=0
+        for addr in unique_elems:
+            if addr!=-1 and addr not in mem_map:
+                mem_map[addr]=curr
+                elems+=1
+                if elems>=bank_size:
+                    curr+=1
+        return mem_map
+    
+    # lru based mapping
+    def memory_mapping_tech_5(self, demand_mat, mem_map, num_of_banks):
+        queues = [[] for i in range(num_of_banks)]
+        
+        unique_elems= []
+        occ_map = {}
+        for row in demand_mat:
+            for addr in row:
+                if addr!=-1 and addr not in occ_map:
+                    unique_elems.append(addr)
+                    occ_map[addr]=1
+                else:
+                    if addr!=-1:
+                        occ_map[addr]+=1
+        
+        size_of_queue = len(unique_elems)/num_of_banks + 1
+        curr=0
+        for row in demand_mat:
+            for addr in row:
+                if addr!=-1:
+                    present=False
+                    for i,q in enumerate(queues):
+                        if addr in q:
+                            q.remove(addr)
+                            q.append(addr)
+                            curr=i
+                            present=True
+                            break
+                    if not present:
+                        if len(queues[curr])==size_of_queue:
+                            queues[curr].remove(queues[curr][0])
+                            queues[curr].append(addr)
+                        else:
+                            queues[curr].append(addr)
+        for i,q in enumerate(queues):
+            for addr in q:
+                mem_map[addr]=i
+        return mem_map
 
     # This will write the traces
-    @method_logger
     def save_traces(self, top_path):
         assert self.params_set_flag, 'Parameters are not set'
-
         dir_name = top_path + '/layer' + str(self.layer_id)
         if not os.path.isdir(dir_name):
             cmd = 'mkdir ' + dir_name
             os.system(cmd)
+        for i in range(self.num_banks):
+            ifmap_sram_filename = f"{dir_name}/IFMAP_SRAM_TRACE_{i}.csv"
+            filter_sram_filename = f"{dir_name}/FILTER_SRAM_TRACE_{i}.csv"
+            ofmap_sram_filename = f"{dir_name}/OFMAP_SRAM_TRACE_{i}.csv"
 
-        ifmap_sram_filename = dir_name +  '/IFMAP_SRAM_TRACE.csv'
-        filter_sram_filename = dir_name + '/FILTER_SRAM_TRACE.csv'
-        ofmap_sram_filename = dir_name +  '/OFMAP_SRAM_TRACE.csv'
+            ifmap_dram_filename = f"{dir_name}/IFMAP_DRAM_TRACE_{i}.csv"
+            filter_dram_filename = f"{dir_name}/FILTER_DRAM_TRACE_{i}.csv"
+            ofmap_dram_filename = f"{dir_name}/OFMAP_DRAM_TRACE_{i}.csv"
 
-        ifmap_dram_filename = dir_name +  '/IFMAP_DRAM_TRACE.csv'
-        filter_dram_filename = dir_name + '/FILTER_DRAM_TRACE.csv'
-        ofmap_dram_filename = dir_name +  '/OFMAP_DRAM_TRACE.csv'
+            self.memory_system[i].print_ifmap_sram_trace(ifmap_sram_filename)
+            self.memory_system[i].print_ifmap_dram_trace(ifmap_dram_filename)
+            self.memory_system[i].print_filter_sram_trace(filter_sram_filename)
+            self.memory_system[i].print_filter_dram_trace(filter_dram_filename)
+            self.memory_system[i].print_ofmap_sram_trace(ofmap_sram_filename)
+            self.memory_system[i].print_ofmap_dram_trace(ofmap_dram_filename)
 
-        self.memory_system.print_ifmap_sram_trace(ifmap_sram_filename)
-        self.memory_system.print_ifmap_dram_trace(ifmap_dram_filename)
-        self.memory_system.print_filter_sram_trace(filter_sram_filename)
-        self.memory_system.print_filter_dram_trace(filter_dram_filename)
-        self.memory_system.print_ofmap_sram_trace(ofmap_sram_filename)
-        self.memory_system.print_ofmap_dram_trace(ofmap_dram_filename)
-
-    @method_logger
-    def calc_report_data(self):
-        assert self.runs_ready, 'Runs are not done yet'
+    #
+    def calc_report_data(self, mem_sys, index):
+        assert self.runs_ready[index], 'Runs are not done yet'
 
         # Compute report
-        self.total_cycles = self.memory_system.get_total_compute_cycles()
-        self.stall_cycles = self.memory_system.get_stall_cycles()
+        self.total_cycles = mem_sys.get_total_compute_cycles()
+        self.stall_cycles = mem_sys.get_stall_cycles()
         self.overall_util = (self.num_compute * 100) / (self.total_cycles * self.num_mac_unit)
         self.mapping_eff = self.compute_system.get_avg_mapping_efficiency() * 100
         self.compute_util = self.compute_system.get_avg_compute_utilization() * 100
@@ -255,22 +459,22 @@ class single_layer_sim:
 
         # Detail report
         self.ifmap_sram_start_cycle, self.ifmap_sram_stop_cycle \
-            = self.memory_system.get_ifmap_sram_start_stop_cycles()
+            = mem_sys.get_ifmap_sram_start_stop_cycles()
 
         self.filter_sram_start_cycle, self.filter_sram_stop_cycle \
-            = self.memory_system.get_filter_sram_start_stop_cycles()
+            = mem_sys.get_filter_sram_start_stop_cycles()
 
         self.ofmap_sram_start_cycle, self.ofmap_sram_stop_cycle \
-            = self.memory_system.get_ofmap_sram_start_stop_cycles()
+            = mem_sys.get_ofmap_sram_start_stop_cycles()
 
         self.ifmap_dram_start_cycle, self.ifmap_dram_stop_cycle, self.ifmap_dram_reads \
-            = self.memory_system.get_ifmap_dram_details()
+            = mem_sys.get_ifmap_dram_details()
 
         self.filter_dram_start_cycle, self.filter_dram_stop_cycle, self.filter_dram_reads \
-            = self.memory_system.get_filter_dram_details()
+            = mem_sys.get_filter_dram_details()
 
         self.ofmap_dram_start_cycle, self.ofmap_dram_stop_cycle, self.ofmap_dram_writes \
-            = self.memory_system.get_ofmap_dram_details()
+            = mem_sys.get_ofmap_dram_details()
 
         # BW calc for DRAM access
         self.avg_ifmap_dram_bw = self.ifmap_dram_reads / (self.ifmap_dram_stop_cycle - self.ifmap_dram_start_cycle + 1)
@@ -279,12 +483,12 @@ class single_layer_sim:
 
         self.report_items_ready = True
 
-    @method_logger
+    #
     def get_layer_id(self):
         assert self.params_set_flag, 'Parameters are not set yet'
         return self.layer_id
 
-    @method_logger
+    #
     def get_compute_report_items(self):
         if not self.report_items_ready:
             self.calc_report_data()
@@ -292,7 +496,7 @@ class single_layer_sim:
         items = [self.total_cycles, self.stall_cycles, self.overall_util, self.mapping_eff, self.compute_util]
         return items
 
-    @method_logger
+    #
     def get_bandwidth_report_items(self):
         if not self.report_items_ready:
             self.calc_report_data()
@@ -302,7 +506,7 @@ class single_layer_sim:
 
         return items
 
-    @method_logger
+    #
     def get_detail_report_items(self):
         if not self.report_items_ready:
             self.calc_report_data()

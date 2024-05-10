@@ -26,6 +26,7 @@ class scale_config:
         self.bandwidths = []
         self.memory_banks = 1
         self.memory_map = memory_map()
+        self.mapping = 0
 
         self.valid_conf_flag = False
 
@@ -65,6 +66,7 @@ class scale_config:
         self.ofmap_offset = int(config.get(section, 'OfmapOffset'))
         self.df = config.get(section, 'Dataflow')
         self.memory_banks = int(config.get(section, 'MemoryBanks').strip())
+        self.mapping = int(config.get(section, 'Mapping').strip())
 
         # Anand: ISSUE #2. Patch
         if self.use_user_bandwidth:
@@ -81,27 +83,27 @@ class scale_config:
         # Anand: Added the memory bank check to avoid stray errors
         if self.memory_banks > 1:
             section = 'memory_map_files'
-            if not os.path.exists(config.get(section, 'MemoryMapIfmap')):
-                print("Ifmap file does not exist")
-                sys.exit(-1)
-            ifmap_mem_map_file = config.get(section, 'MemoryMapIfmap')
+            # if not os.path.exists(config.get(section, 'MemoryMapIfmap')):
+            #     print("Ifmap file does not exist")
+            #     sys.exit(-1)
+            # ifmap_mem_map_file = config.get(section, 'MemoryMapIfmap')
 
-            if not os.path.exists(config.get(section, 'MemoryMapFilter')):
-                print("Filter file does not exist")
-                sys.exit(-1)
-            filter_mem_map_file = config.get(section, 'MemoryMapFilter')
+            # if not os.path.exists(config.get(section, 'MemoryMapFilter')):
+            #     print("Filter file does not exist")
+            #     sys.exit(-1)
+            # filter_mem_map_file = config.get(section, 'MemoryMapFilter')
 
-            if not os.path.exists(config.get(section, 'MemoryMapOfmap')):
-                print("Ofmap file does not exist")
-                sys.exit(-1)
+            # if not os.path.exists(config.get(section, 'MemoryMapOfmap')):
+            #     print("Ofmap file does not exist")
+            #     sys.exit(-1)
 
-            ofmap_mem_map_file = config.get(section, 'MemoryMapOfmap')
+            # ofmap_mem_map_file = config.get(section, 'MemoryMapOfmap')
 
-            self.memory_map.set_params(num_banks=self.memory_banks,
-                                       ifmap_map_file=ifmap_mem_map_file,
-                                       filter_map_file=filter_mem_map_file,
-                                       ofmap_map_file=ofmap_mem_map_file
-                                       )
+            # self.memory_map.set_params(num_banks=self.memory_banks,
+            #                            ifmap_map_file=ifmap_mem_map_file,
+            #                            filter_map_file=filter_mem_map_file,
+            #                            ofmap_map_file=ofmap_mem_map_file
+            #                            )
         elif self.memory_banks == 1:
             self.memory_map.set_single_bank_params( filter_offset=self.filter_offset,
                                                     ofmap_offset=self.ofmap_offset)
